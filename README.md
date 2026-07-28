@@ -83,3 +83,5 @@ Este projeto ainda não possui uma licença definida.
 
 
 ## Fotos do projeto 
+
+[fotos](https://github.com/5qU4llV777/chat-finance/tree/main/verdinho)
