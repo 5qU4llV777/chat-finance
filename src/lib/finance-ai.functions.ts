@@ -49,30 +49,27 @@ IMPORTANTE para o campo transaction:
 - "amount" é sempre um número positivo em reais.
 - "category" em minúsculas.`;
 
-    const typeEnum = z
-      .string()
-      .transform((v) => {
-        const s = v.toLowerCase().trim();
-        if (["expense", "despesa", "gasto", "saida", "saída"].includes(s)) return "expense" as const;
-        if (["income", "receita", "entrada", "ganho"].includes(s)) return "income" as const;
-        return s;
-      })
-      .pipe(z.enum(["expense", "income"]));
-
     const schema = z.object({
       reply: z.string().describe("Resposta amigável e curta em português para o usuário."),
       transaction: z
         .object({
-          type: typeEnum,
+          type: z.string().describe("expense ou income"),
           amount: z.number().positive(),
           category: z.string(),
-          description: z.string().default(""),
+          description: z.string().nullable(),
         })
         .nullable()
         .describe("Transação detectada, ou null."),
     });
 
-    let result: z.infer<typeof schema>;
+    const normalizeType = (v: string): "expense" | "income" | null => {
+      const s = v.toLowerCase().trim();
+      if (["expense", "despesa", "gasto", "saida", "saída"].includes(s)) return "expense";
+      if (["income", "receita", "entrada", "ganho"].includes(s)) return "income";
+      return null;
+    };
+
+    let result: { reply: string; transaction: { type: "expense" | "income"; amount: number; category: string; description: string } | null };
     try {
       const gen = await generateText({
         model: gateway()(MODEL_ID),
@@ -83,7 +80,20 @@ IMPORTANTE para o campo transaction:
         ],
         output: Output.object({ schema }),
       });
-      result = gen.output;
+      const raw = gen.output;
+      let tx: { type: "expense" | "income"; amount: number; category: string; description: string } | null = null;
+      if (raw.transaction) {
+        const t = normalizeType(raw.transaction.type);
+        if (t) {
+          tx = {
+            type: t,
+            amount: raw.transaction.amount,
+            category: raw.transaction.category,
+            description: raw.transaction.description || data.message,
+          };
+        }
+      }
+      result = { reply: raw.reply, transaction: tx };
     } catch (e) {
       console.error("AI error", e);
       result = { reply: "Desculpe, tive um probleminha agora. Pode tentar de novo? 🌱", transaction: null };
