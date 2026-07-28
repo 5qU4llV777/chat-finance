@@ -80,3 +80,6 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir uma *issue* ou e
 ## 📄 Licença
 
 Este projeto ainda não possui uma licença definida.
+
+
+## Fotos do projeto 
