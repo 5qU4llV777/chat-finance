@@ -41,16 +41,32 @@ Perfil do usuário:
 - Objetivo principal: ${profile?.main_goal ?? "não informado"}
 - Categorias favoritas: ${catList}
 
-Sua tarefa: analisar a mensagem. Se ela descrever um gasto ou uma receita (ex: "gastei 30 no mercado", "recebi 500 de freela"), extraia a transação. Escolha a categoria da lista do usuário se possível, senão "outros". Se não for uma transação (dúvida, papo, pedido de conselho), responda normalmente sem transação.`;
+Sua tarefa: analisar a mensagem. Se ela descrever um gasto ou uma receita (ex: "gastei 30 no mercado", "recebi 500 de freela"), extraia a transação. Escolha a categoria da lista do usuário se possível, senão "outros". Se não for uma transação (dúvida, papo, pedido de conselho), responda normalmente com transaction=null.
+
+IMPORTANTE para o campo transaction:
+- "type" deve ser exatamente "expense" (para gastos) ou "income" (para receitas). NUNCA use "despesa" ou "receita".
+- "description" é obrigatório: uma frase curta descrevendo (ex: "Compra no mercado").
+- "amount" é sempre um número positivo em reais.
+- "category" em minúsculas.`;
+
+    const typeEnum = z
+      .string()
+      .transform((v) => {
+        const s = v.toLowerCase().trim();
+        if (["expense", "despesa", "gasto", "saida", "saída"].includes(s)) return "expense" as const;
+        if (["income", "receita", "entrada", "ganho"].includes(s)) return "income" as const;
+        return s;
+      })
+      .pipe(z.enum(["expense", "income"]));
 
     const schema = z.object({
       reply: z.string().describe("Resposta amigável e curta em português para o usuário."),
       transaction: z
         .object({
-          type: z.enum(["expense", "income"]),
+          type: typeEnum,
           amount: z.number().positive(),
           category: z.string(),
-          description: z.string(),
+          description: z.string().default(""),
         })
         .nullable()
         .describe("Transação detectada, ou null."),
@@ -79,7 +95,7 @@ Sua tarefa: analisar a mensagem. Se ela descrever um gasto ou uma receita (ex: "
         type: result.transaction.type,
         amount: result.transaction.amount,
         category: result.transaction.category.toLowerCase(),
-        description: result.transaction.description,
+        description: result.transaction.description || data.message,
       });
     }
 
@@ -87,6 +103,7 @@ Sua tarefa: analisar a mensagem. Se ela descrever um gasto ou uma receita (ex: "
 
     return { reply: result.reply, transaction: result.transaction };
   });
+
 
 export const generateTips = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
